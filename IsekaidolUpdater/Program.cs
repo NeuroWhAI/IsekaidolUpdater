@@ -2,25 +2,38 @@
 using System.Threading;
 using System.Threading.Tasks;
 using System.Net.Http;
+using System.Collections.Generic;
 
 namespace IsekaidolUpdater
 {
     class Program
     {
-        static readonly HttpClient client = new HttpClient();
-
         static async Task Main(string[] args)
         {
-            if (args.Length != 2)
+            if (args.Length < 2 || args.Length % 2 != 0)
             {
-                Console.WriteLine("url interval");
+                Console.WriteLine("url interval ...");
                 return;
             }
 
-            string url = args[0];
-            var interval = TimeSpan.FromMilliseconds(int.Parse(args[1]));
+            var tasks = new List<Task>();
 
-            Console.WriteLine("URL : {0}, Interval : {1}", url, interval.TotalMilliseconds);
+            for (int i = 0; i < args.Length; i += 2)
+            {
+                string url = args[i];
+                var interval = TimeSpan.FromMilliseconds(int.Parse(args[i + 1]));
+
+                Console.WriteLine("URL : {0}, Interval : {1}", url, interval.TotalMilliseconds);
+
+                tasks.Add(Job(url, interval));
+            }
+
+            await Task.WhenAll(tasks);
+        }
+
+        static async Task Job(string url, TimeSpan interval)
+        {
+            HttpClient client = new HttpClient();
 
             while (true)
             {
@@ -34,9 +47,10 @@ namespace IsekaidolUpdater
                         string content = await res.Content.ReadAsStringAsync();
                         Console.WriteLine("Content : {0}", content);
                     }
-                    while (DateTime.UtcNow - start < interval)
+                    var delay = interval - (DateTime.UtcNow - start);
+                    if (delay.TotalMilliseconds > 1)
                     {
-                        await Task.Delay(10);
+                        await Task.Delay(delay);
                     }
                 }
                 catch (Exception err)
